@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# 安装系统依赖
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
@@ -11,23 +11,24 @@ RUN apt-get update && apt-get install -y \
 # Install git since it's required by the whisper package
 RUN apt-get update && apt-get install -y git
 
-# 设置工作目录
+# Set working directory
 WORKDIR /app
 
-# 升级 pip
+# Upgrade pip
 RUN pip install --upgrade pip
 
-# 复制依赖文件
+# Copy requirements file
 COPY requirements.txt .
 
-# 安装 Python 依赖
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制项目文件
+# Copy project files
 COPY . .
 
-# 暴露端口
+# Expose port
 EXPOSE 8080
 
-# 启动命令
+# Command to run the app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+
