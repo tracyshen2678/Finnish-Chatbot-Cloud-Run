@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 from gtts import gTTS
-from pyngrok import ngrok
 import uvicorn
 import nest_asyncio
 from pathlib import Path
@@ -76,11 +75,14 @@ async def process_audio(audio: UploadFile = File(...)):
         # 确保音频转换为 WAV（Whisper 需要 16kHz 单声道）
         output_wav_path = os.path.join(AUDIO_DIR, "input.wav")
         try:
-            out, _ = (
+            # 调用 ffmpeg 转换音频
+            out, err = (
                 ffmpeg.input(input_path)
                 .output(output_wav_path, format="wav", ac=1, ar=16000)  # 强制 16kHz 单声道
                 .run(capture_stdout=True, capture_stderr=True)
             )
+            if err:
+                return {"error": f"FFmpeg processing error: {err.decode()}"}
         except ffmpeg.Error as e:
             return {"error": f"FFmpeg failed to process the file: {str(e)}"}
 
@@ -145,9 +147,8 @@ async def download_response():
         filename="response.mp3"
     )
 
-
-
 # 运行 FastAPI
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
 
