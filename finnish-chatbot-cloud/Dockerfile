@@ -1,9 +1,9 @@
-FROM python:3.10
+FROM python:3.9-slim
 
-# 使用root用户执行
-USER root
+# 设置工作目录
+WORKDIR /app
 
-# 安装必要的系统依赖
+# 安装系统依赖
 RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     ffmpeg \
@@ -11,29 +11,17 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# 设置环境变量，指定 Hugging Face 缓存目录
-ENV HF_HOME=/tmp/transformers_cache
-
-# 设置工作目录
-WORKDIR /app
-
-# 配置 Git 用户名和邮箱
-RUN git config --global user.email "516904203@qq.com" && \
-    git config --global user.name "your_huggingface_username" 
-
-# 复制并安装 Python 依赖
+# 复制依赖文件
 COPY requirements.txt .
+
+# 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制应用代码
+# 复制项目文件
 COPY . .
 
-# 安装 uvicorn（如果没有安装）
-RUN pip install uvicorn
+# 暴露端口
+EXPOSE 8080
 
-# 开放端口
-EXPOSE 7860
-
-# 启动应用
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
-
+# 启动命令
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
