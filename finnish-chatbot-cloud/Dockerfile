@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
     build-essential \
+    portaudio19-dev \  # Install PortAudio development libraries
     && rm -rf /var/lib/apt/lists/*
 
 # Install git since it's required by the whisper package
