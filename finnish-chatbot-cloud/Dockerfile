@@ -1,20 +1,22 @@
 FROM python:3.9-slim
 
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # 设置工作目录
 WORKDIR /app
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
-    portaudio19-dev \
-    ffmpeg \
-    libsndfile1 \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+# 升级 pip
+RUN pip install --upgrade pip
 
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装Python依赖
+# 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目文件
