@@ -6,95 +6,122 @@ import torch
 import ffmpeg
 import soundfile as sf
 from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 from gtts import gTTS
-from fastapi.middleware.cors import CORSMiddleware
+from pyngrok import ngrok
+import uvicorn
+import nest_asyncio
+from pathlib import Path
 
-# 设置缓存目录为 /tmp
+# 解决事件循环问题
+nest_asyncio.apply()
+
+# 设置缓存目录
 os.environ['TRANSFORMERS_CACHE'] = '/tmp/transformers_cache'
 
-# 初始化应用
+# 初始化 FastAPI
 app = FastAPI()
 
+# ✅ 允许 CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8081"],  # 允许所有来源（建议改为你的前端域名）
+    allow_origins=["http://localhost:8081"],
     allow_credentials=True,
-    allow_methods=["*"],  # 允许所有 HTTP 方法 (GET, POST, PUT, DELETE等)
-    allow_headers=["*"],  # 允许所有请求头
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# 设备配置
+# 设备检测
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# 语音识别 Pipeline
+# 初始化 Whisper 语音识别
 speech_recognizer = pipeline(
     "automatic-speech-recognition",
     model="Finnish-NLP/whisper-large-finnish-v3",
     device=device
 )
 
-# 对话模型
+# 加载 GPT-2 聊天模型
 gpt2_tokenizer = AutoTokenizer.from_pretrained("TracyShen301/myFinnishChatbot")
 gpt2_model = AutoModelForCausalLM.from_pretrained("TracyShen301/myFinnishChatbot").to(device)
 
-# 文件存储配置，使用 /tmp/audio_files 目录
+# 音频文件存储目录
 AUDIO_DIR = "/tmp/audio_files"
 os.makedirs(AUDIO_DIR, exist_ok=True)
+
+# 支持的音频格式
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
 
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Finnish Chatbot API!"}
 
-
 @app.post("/process_audio/")
 async def process_audio(audio: UploadFile = File(...)):
     try:
-        # 保存原始音频
-        input_path = os.path.join(AUDIO_DIR, "input.mp3")
+        # 获取文件扩展名
+        ext = Path(audio.filename).suffix.lower()
+
+        # 检查是否是允许的格式
+        if ext not in ALLOWED_EXTENSIONS:
+            return {"error": f"Unsupported audio format: {ext}. Supported formats: {', '.join(ALLOWED_EXTENSIONS)}"}
+
+        # 临时存储上传的音频
+        input_path = os.path.join(AUDIO_DIR, f"input{ext}")
         with open(input_path, "wb") as f:
-            f.write(await file.read())
+            f.write(await audio.read())
 
-        # 音频预处理
-        out, _ = (
-            ffmpeg.input(input_path)
-            .output('pipe:1', format='wav', ac=1, ar=16000)  # 强制16kHz单声道
-            .run(capture_stdout=True, capture_stderr=True)
-        )
+        # 确保音频转换为 WAV（Whisper 需要 16kHz 单声道）
+        output_wav_path = os.path.join(AUDIO_DIR, "input.wav")
+        try:
+            out, _ = (
+                ffmpeg.input(input_path)
+                .output(output_wav_path, format="wav", ac=1, ar=16000)  # 强制 16kHz 单声道
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+        except ffmpeg.Error as e:
+            return {"error": f"FFmpeg failed to process the file: {str(e)}"}
 
-        # 读取并转换音频格式
-        audio_data, samplerate = sf.read(io.BytesIO(out))
-        audio_data = (audio_data * 32767).astype(np.int16)  # 转换为16位整型
+        # 读取转换后的 WAV 文件
+        audio_data, samplerate = sf.read(output_wav_path)
+        audio_data = (audio_data * 32767).astype(np.int16)  # 转换为 16 位整型
 
-        # 语音识别 - 使用正确的字典键名格式
-        result = speech_recognizer(
-            {"raw": audio_data, "sampling_rate": 16000}
-        )
-        input_text = result["text"]
-        formatted_input_text = f"User: {input_text}"
+        # Whisper 语音识别
+        result = speech_recognizer({"raw": audio_data, "sampling_rate": 16000})
+        input_text = result["text"].strip()
 
-        # 生成对话响应
-        inputs = gpt2_tokenizer.encode(formatted_input_text, return_tensors="pt").to(device)
-        # 创建attention mask
-        attention_mask = torch.ones_like(inputs)
-        # 生成输出
-        outputs = gpt2_model.generate(
-            inputs,
-            max_length=150,
-            pad_token_id=50256,
-            attention_mask=attention_mask
-        )
-        response_text = gpt2_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # **去除首尾的引号（如果有）**
+        input_text = input_text.strip("\"“”")
 
-        # 处理 GPT-2 生成的文本
-        if "Bot:" in response_text:
-            response_text = response_text.split("Bot:")[-1].strip()  # 只保留 "Bot:" 后的部分
+        # **去掉标点符号，转换为小写，方便匹配**
+        input_text_clean = re.sub(r"[^\w\s]", "", input_text).lower()
 
-        # 提取第一句话
-        match = re.search(r"([^.?!]*[.?!])", response_text)
-        if match:
-            response_text = match.group(1).strip()
+        # **检查是否是 "Kuka sinä olet?" 或 "Kuka sä oot?"**
+        if input_text_clean in ["kuka sinä olet", "kuka sä oot"]:
+            response_text = "Olen sinun suomen kielen oppimisrobotti."
+        else:
+            # 不是固定问题，继续 GPT 生成
+            formatted_input_text = f"User: {input_text}"
+            inputs = gpt2_tokenizer.encode(formatted_input_text, return_tensors="pt").to(device)
+            attention_mask = torch.ones_like(inputs)
+            outputs = gpt2_model.generate(
+                inputs,
+                max_length=150,
+                pad_token_id=50256,
+                attention_mask=attention_mask
+            )
+            response_text = gpt2_tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+            # 处理 GPT-2 生成的文本
+            if "Bot:" in response_text:
+                response_text = response_text.split("Bot:")[-1].strip()
+
+            # 提取第一句话
+            match = re.search(r"([^.?!]*[.?!])", response_text)
+            if match:
+                response_text = match.group(1).strip()
 
         # 语音合成
         tts = gTTS(text=response_text, lang="fi")
@@ -118,6 +145,9 @@ async def download_response():
         filename="response.mp3"
     )
 
+
+
+# 运行 FastAPI
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
