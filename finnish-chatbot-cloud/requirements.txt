@@ -85,4 +85,5 @@ uvicorn>=0.27.1
 wheel==0.45.1
 whisper==1.1.10
 whispercpp==0.0.17
+nest_asyncio
 
