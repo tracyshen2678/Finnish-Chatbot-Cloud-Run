@@ -9,12 +9,21 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 from gtts import gTTS
+from fastapi.middleware.cors import CORSMiddleware
 
 # 设置缓存目录为 /tmp
 os.environ['TRANSFORMERS_CACHE'] = '/tmp/transformers_cache'
 
 # 初始化应用
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8081"],  # 允许所有来源（建议改为你的前端域名）
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有 HTTP 方法 (GET, POST, PUT, DELETE等)
+    allow_headers=["*"],  # 允许所有请求头
+)
 
 # 设备配置
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -40,7 +49,7 @@ async def read_root():
 
 
 @app.post("/process_audio/")
-async def process_audio(file: UploadFile = File(...)):
+async def process_audio(audio: UploadFile = File(...)):
     try:
         # 保存原始音频
         input_path = os.path.join(AUDIO_DIR, "input.mp3")
@@ -111,4 +120,4 @@ async def download_response():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
