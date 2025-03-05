@@ -50,9 +50,6 @@ gpt2_model = AutoModelForCausalLM.from_pretrained("TracyShen301/myFinnishChatbot
 AUDIO_DIR = "/tmp/audio_files"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-# 支持的音频格式
-ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
-
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Finnish Chatbot API!"}
@@ -60,34 +57,20 @@ async def read_root():
 @app.post("/process_audio/")
 async def process_audio(audio: UploadFile = File(...)):
     try:
-        # 获取文件扩展名
-        ext = Path(audio.filename).suffix.lower()
-
-        # 检查是否是允许的格式
-        if ext not in ALLOWED_EXTENSIONS:
-            return {"error": f"Unsupported audio format: {ext}. Supported formats: {', '.join(ALLOWED_EXTENSIONS)}"}
-
-        # 临时存储上传的音频
-        input_path = os.path.join(AUDIO_DIR, f"input{ext}")
+        # 保存原始音频
+        input_path = os.path.join(AUDIO_DIR, "input.mp3")
         with open(input_path, "wb") as f:
             f.write(await audio.read())
 
-        # 确保音频转换为 WAV（Whisper 需要 16kHz 单声道）
-        output_wav_path = os.path.join(AUDIO_DIR, "input.wav")
-        try:
-            # 调用 ffmpeg 转换音频
-            out, err = (
-                ffmpeg.input(input_path)
-                .output(output_wav_path, format="wav", ac=1, ar=16000)  # 强制 16kHz 单声道
-                .run(capture_stdout=True, capture_stderr=True)
-            )
-            if err:
-                return {"error": f"FFmpeg processing error: {err.decode()}"}
-        except ffmpeg.Error as e:
-            return {"error": f"FFmpeg failed to process the file: {str(e)}"}
+        # 转换音频格式
+        out, _ = (
+            ffmpeg.input(input_path)
+            .output('pipe:1', format='wav', ac=1, ar=16000)  # 强制 16kHz 单声道
+            .run(capture_stdout=True, capture_stderr=True)
+        )
 
-        # 读取转换后的 WAV 文件
-        audio_data, samplerate = sf.read(output_wav_path)
+        # 读取音频数据
+        audio_data, samplerate = sf.read(io.BytesIO(out))
         audio_data = (audio_data * 32767).astype(np.int16)  # 转换为 16 位整型
 
         # Whisper 语音识别
@@ -138,6 +121,7 @@ async def process_audio(audio: UploadFile = File(...)):
 
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.get("/download_response/")
 async def download_response():
