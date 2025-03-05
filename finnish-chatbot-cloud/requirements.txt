@@ -31,6 +31,8 @@ matplotlib==3.10.0
 more-itertools==10.6.0
 mpmath==1.3.0
 msgpack==1.1.0
+pyngrok
+
 networkx==3.4.2
 noisereduce==3.0.3
 numba==0.61.0
