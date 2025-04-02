@@ -52,7 +52,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 
 # 预定义的问答对
 hardcoded_qa = {
-
+    "kuka sinä olet": "Olen sinun suomen kielen oppimisrobotti.",
     "olen tänään todella väsynyt": "Lepää hyvin, huomenna on parempi päivä.",
     "missä on lähin ruokakauppa": "Käänny oikealle, kauppa on 200 metrin päässä.",
     "miten pääsen kirjastoon": "Suoraan eteenpäin ja toinen katu vasemmalle.",
