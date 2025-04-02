@@ -50,6 +50,27 @@ gpt2_model = AutoModelForCausalLM.from_pretrained("TracyShen301/myFinnishChatbot
 AUDIO_DIR = "/tmp/audio_files"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
+# 预定义的问答对
+hardcoded_qa = {
+
+    "olen tänään todella väsynyt": "Lepää hyvin, huomenna on parempi päivä.",
+    "missä on lähin ruokakauppa": "Käänny oikealle, kauppa on 200 metrin päässä.",
+    "miten pääsen kirjastoon": "Suoraan eteenpäin ja toinen katu vasemmalle.",
+    "millainen sää on tänään": "Aurinkoista ja lämmintä, noin 22 astetta.",
+    "missä voin pelata jalkapalloa": "Keskuspuistossa on hyvät kentät.",
+    "mitä ruokaa suosittelet": "Kokeile lohikeittoa, se on paikallinen erikoisuus.",
+    "mitä kuuluu": "Hyvää, kiitos kysymästä.",
+    "miksi suomi on niin vaikeaa": "Harjoittelu tekee mestarin, älä luovuta.",
+    "paljonko tämä maksaa": "Se maksaa 15 euroa.",
+    "milloin bussi tulee": "Seuraava bussi tulee 10 minuutin päästä.",
+    "voinko varata ajan huomiselle": "Kyllä, meillä on aikoja vapaana klo 14 ja 16.",
+    "onko teillä kofeiiniton kahvi": "Kyllä, haluatko sen maidolla?",
+    "tarvitsen särkylääkettä missä apteekki on": "Apteekki on kauppakeskuksen toisessa kerroksessa.",
+    "monelta on aamiainen": "Aamiainen tarjoillaan 7-10 välillä.",
+    "voiko täällä uida": "Kyllä, vesi on puhdasta ja lämmintä."
+}
+
+
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Finnish Chatbot API!"}
@@ -83,9 +104,8 @@ async def process_audio(audio: UploadFile = File(...)):
         # **去掉标点符号，转换为小写，方便匹配**
         input_text_clean = re.sub(r"[^\w\s]", "", input_text).lower()
 
-        # **检查是否是 "Kuka sinä olet?" 或 "Kuka sä oot?"**
-        if input_text_clean in ["kuka sinä olet", "kuka sä oot"]:
-            response_text = "Olen sinun suomen kielen oppimisrobotti."
+        if input_text_clean in hardcoded_qa:
+            response_text = hardcoded_qa[input_text_clean]
         else:
             # 不是固定问题，继续 GPT 生成
             formatted_input_text = f"User: {input_text}"
