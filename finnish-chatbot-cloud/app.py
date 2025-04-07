@@ -133,22 +133,27 @@ async def process_audio(audio: UploadFile = File(...)):
         output_path = os.path.join(AUDIO_DIR, "response.mp3")
         tts.save(output_path)
 
+        # 生成唯一的音频文件名
+        unique_filename = f"response_{int(time.time() * 1000)}.mp3"
+        output_path = os.path.join(AUDIO_DIR, unique_filename)
+        tts.save(output_path)
+        
         return {
             "transcription": input_text,
             "response": response_text,
-            "audio_url": "/download_response/"
+            "audio_url": f"/download_response/{unique_filename}"
         }
 
     except Exception as e:
         return {"error": str(e)}
 
 
-@app.get("/download_response/")
-async def download_response():
+@app.get("/download_response/{filename}")
+async def download_response(filename: str):
     return FileResponse(
-        os.path.join(AUDIO_DIR, "response.mp3"),
+        os.path.join(AUDIO_DIR, filename),
         media_type="audio/mpeg",
-        filename="response.mp3"
+        filename=filename
     )
 
 # 运行 FastAPI
