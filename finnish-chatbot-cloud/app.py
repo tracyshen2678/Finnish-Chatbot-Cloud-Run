@@ -1,6 +1,7 @@
 import re
 import os
 import io
+import time
 import numpy as np
 import torch
 import ffmpeg
@@ -13,6 +14,7 @@ from gtts import gTTS
 import uvicorn
 import nest_asyncio
 from pathlib import Path
+
 
 # 解决事件循环问题
 nest_asyncio.apply()
@@ -128,15 +130,11 @@ async def process_audio(audio: UploadFile = File(...)):
             if match:
                 response_text = match.group(1).strip()
 
-        # 语音合成
-        tts = gTTS(text=response_text, lang="fi")
-        output_path = os.path.join(AUDIO_DIR, "response.mp3")
-        tts.save(output_path)
-
-        # 生成唯一的音频文件名
-        unique_filename = f"response_{int(time.time() * 1000)}.mp3"
-        output_path = os.path.join(AUDIO_DIR, unique_filename)
-        tts.save(output_path)
+       # 语音合成
+tts = gTTS(text=response_text, lang="fi")
+unique_filename = f"response_{int(time.time() * 1000)}.mp3"
+output_path = os.path.join(AUDIO_DIR, unique_filename)
+tts.save(output_path)  # 只保存一次
         
         return {
             "transcription": input_text,
