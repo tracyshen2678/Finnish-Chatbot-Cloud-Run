@@ -15,7 +15,6 @@ import uvicorn
 import nest_asyncio
 from pathlib import Path
 
-
 # 解决事件循环问题
 nest_asyncio.apply()
 
@@ -72,7 +71,6 @@ hardcoded_qa = {
     "voiko täällä uida": "Kyllä, vesi on puhdasta ja lämmintä."
 }
 
-
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Finnish Chatbot API!"}
@@ -100,10 +98,10 @@ async def process_audio(audio: UploadFile = File(...)):
         result = speech_recognizer({"raw": audio_data, "sampling_rate": 16000})
         input_text = result["text"].strip()
 
-        # **去除首尾的引号（如果有）**
-        input_text = input_text.strip("\"“”")
+        # 去除首尾的引号（如果有）
+        input_text = input_text.strip("\"""")
 
-        # **去掉标点符号，转换为小写，方便匹配**
+        # 去掉标点符号，转换为小写，方便匹配
         input_text_clean = re.sub(r"[^\w\s]", "", input_text).lower()
 
         if input_text_clean in hardcoded_qa:
@@ -130,11 +128,11 @@ async def process_audio(audio: UploadFile = File(...)):
             if match:
                 response_text = match.group(1).strip()
 
-       # 语音合成
-tts = gTTS(text=response_text, lang="fi")
-unique_filename = f"response_{int(time.time() * 1000)}.mp3"
-output_path = os.path.join(AUDIO_DIR, unique_filename)
-tts.save(output_path)  # 只保存一次
+        # 语音合成
+        tts = gTTS(text=response_text, lang="fi")
+        unique_filename = f"response_{int(time.time() * 1000)}.mp3"
+        output_path = os.path.join(AUDIO_DIR, unique_filename)
+        tts.save(output_path)  # 只保存一次
         
         return {
             "transcription": input_text,
@@ -144,7 +142,6 @@ tts.save(output_path)  # 只保存一次
 
     except Exception as e:
         return {"error": str(e)}
-
 
 @app.get("/download_response/{filename}")
 async def download_response(filename: str):
@@ -157,5 +154,4 @@ async def download_response(filename: str):
 # 运行 FastAPI
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
-
 
